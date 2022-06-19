@@ -2,6 +2,9 @@
 # Overleaf Base Image (sharelatex/sharelatex-base)
 # --------------------------------------------------
 
+ARG TEXLIVE_IMAGE=registry.gitlab.com/islandoftex/images/texlive:TL2022-2022-06-19-04-06
+FROM $TEXLIVE_IMAGE as texlive
+
 FROM phusion/baseimage:focal-1.0.0
 
 # Makes sure LuaTex cache is writable
@@ -34,36 +37,9 @@ RUN chmod +x /usr/bin/envsubst
 
 # Install TexLive
 # ---------------
-# CTAN mirrors occasionally fail, in that case install TexLive against an
-# specific server, for example http://ctan.crest.fr
-#
-# # docker build \
-#     --build-arg TEXLIVE_MIRROR=http://ctan.crest.fr/tex-archive/systems/texlive/tlnet \
-#     -f Dockerfile-base -t sharelatex/sharelatex-base .
-ARG TEXLIVE_MIRROR=http://mirror.ctan.org/systems/texlive/tlnet
-
 ENV PATH "${PATH}:/usr/local/texlive/2022/bin/x86_64-linux"
 
-RUN mkdir /install-tl-unx \
-&&  curl -sSL \
-      ${TEXLIVE_MIRROR}/install-tl-unx.tar.gz \
-    | tar -xzC /install-tl-unx --strip-components=1 \
-    \
-&&  echo "tlpdbopt_autobackup 0" >> /install-tl-unx/texlive.profile \
-&&  echo "tlpdbopt_install_docfiles 0" >> /install-tl-unx/texlive.profile \
-&&  echo "tlpdbopt_install_srcfiles 0" >> /install-tl-unx/texlive.profile \
-&&  echo "selected_scheme scheme-basic" >> /install-tl-unx/texlive.profile \
-    \
-&&  /install-tl-unx/install-tl \
-      -profile /install-tl-unx/texlive.profile \
-      -repository ${TEXLIVE_MIRROR} \
-    \
-&&  tlmgr install --repository ${TEXLIVE_MIRROR} \
-      latexmk \
-      texcount \
-      synctex \
-    \
-&&  rm -rf /install-tl-unx
+COPY --from=texlive /usr/local/texlive /usr/local/texlive
 
 
 # Set up sharelatex user and home directory
