@@ -10,33 +10,16 @@ nav.navbar.navbar-default.navbar-main
 			else
 				a(href='/', aria-label=settings.appName).navbar-brand
 
-		- var canDisplayAdminMenu = hasAdminAccess()
-		- var canDisplayAdminRedirect = canRedirectToAdminDomain()
-		- var canDisplaySplitTestMenu = hasFeature('saas') && (canDisplayAdminMenu || (getSessionUser() && getSessionUser().staffAccess && (getSessionUser().staffAccess.splitTestMetrics || getSessionUser().staffAccess.splitTestManagement)))
 		.navbar-collapse.collapse(collapse="navCollapsed")
+
 			ul.nav.navbar-nav.navbar-right
-				if (canDisplayAdminMenu || canDisplayAdminRedirect || canDisplaySplitTestMenu)
-					li.dropdown(class="subdued", dropdown)
-						a.dropdown-toggle(href, dropdown-toggle)
-							| Admin
-							b.caret
-						ul.dropdown-menu
-							if canDisplayAdminMenu
-								li
-									a(href="/admin") Manage Site
-								li
-									a(href="/admin/user") Manage Users
-								li
-									a(href="/admin/project") Project URL Lookup
-							if canDisplayAdminRedirect
-								li
-									a(href=settings.adminUrl) Switch to Admin
-							if canDisplaySplitTestMenu
-								li
-									a(href="/admin/split-test") Manage Split Tests
+				if (getSessionUser() && getSessionUser().isAdmin)
+					li
+						a(href="/admin") Admin
+
 
 				// loop over header_extras
-				each item in ((splitTestVariants && (splitTestVariants['unified-navigation'] === 'show-unified-navigation')) ? nav.header_extras_unified : nav.header_extras)
+				each item in nav.header_extras
 					-
 						if ((item.only_when_logged_in && getSessionUser())
 							|| (item.only_when_logged_out && (!getSessionUser()))
@@ -61,52 +44,21 @@ nav.navbar.navbar-default.navbar-main
 										else
 											li
 												if child.url
-													a(
-														href=child.url,
-														class=child.class,
-														event-tracking=child.event
-														event-tracking-mb="true"
-														event-tracking-trigger="click"
-													) !{translate(child.text)}
+													a(href=child.url, class=child.class) !{translate(child.text)}
 												else
 													| !{translate(child.text)}
 						else
 							li(class=item.class)
 								if item.url
-									a(
-										href=item.url,
-										class=item.class,
-										event-tracking=item.event
-										event-tracking-mb="true"
-										event-tracking-trigger="click"
-									) !{translate(item.text)}
+									a(href=item.url, class=item.class) !{translate(item.text)}
 								else
 									| !{translate(item.text)}
 
 				// logged out
 				if !getSessionUser()
-					// register link
-					if hasFeature('registration-page')
-						li
-							a(
-								href="/register"
-								event-tracking="menu-clicked-register"
-								event-tracking-action="clicked"
-								event-tracking-trigger="click"
-								event-tracking-mb="true"
-								event-segmentation={ page: currentUrl }
-							) #{translate('register')}
-
 					// login link
 					li
-						a(
-							href="/login"
-							event-tracking="menu-clicked-login"
-							event-tracking-action="clicked"
-							event-tracking-trigger="click"
-							event-tracking-mb="true"
-							event-segmentation={ page: currentUrl }
-						) #{translate('log_in')}
+						a(href="/login") #{translate('log_in')}
 
 				// projects link and account menu
 				if getSessionUser()
@@ -117,9 +69,9 @@ nav.navbar.navbar-default.navbar-main
 							| #{translate('Account')}
 							b.caret
 						ul.dropdown-menu
-							li
-								div.subdued {{ usersEmail }}
-							li.divider.hidden-xs.hidden-sm
+							//li
+							//	div.subdued(ng-non-bindable) #{getUserEmail()}
+							//li.divider.hidden-xs.hidden-sm
 							li
 								a(href="/user/settings") #{translate('Account Settings')}
 							if nav.showSubscriptionLink
