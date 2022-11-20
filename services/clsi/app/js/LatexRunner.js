@@ -187,6 +187,7 @@ module.exports = LatexRunner = {
       '-auxdir=$COMPILE_DIR',
       '-outdir=$COMPILE_DIR',
       '-synctex=1',
+      '-shell-escape',
       '-interaction=batchmode',
     ]
     if (flags) {
