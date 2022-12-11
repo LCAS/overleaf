@@ -572,14 +572,21 @@ const AuthenticationController = {
           UserCreator.createNewUser({
             holdingAccount: false,
             email: profile.emails[0].value,
-            first_name: profile.name.first_name,
-            last_name: profile.name.last_name
+            first_name: profile.name.givenName,
+            last_name: profile.name.familyName
           }, function (user) {
             return callback(null, user);
           })
         } else {
-          return callback(null, user);
-        }
+          user.first_name = profile.name.givenName;
+          user.last_name = profile.name.familyName;
+          user.save(function (error) {
+            if (error) {
+              return callback(error);
+            }
+            return callback(null, user);
+          })
+          }
       })
     }
 }
