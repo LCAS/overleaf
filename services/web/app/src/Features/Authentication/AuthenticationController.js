@@ -9,6 +9,8 @@ const querystring = require('querystring')
 const Settings = require('@overleaf/settings')
 const basicAuth = require('basic-auth')
 const tsscmp = require('tsscmp')
+const {User} = require("../../models/User");
+const UserCreator = require("../User/UserCreator");
 const UserHandler = require('../User/UserHandler')
 const UserSessionsManager = require('../User/UserSessionsManager')
 const Analytics = require('../Analytics/AnalyticsManager')
@@ -595,6 +597,35 @@ const AuthenticationController = {
       delete req.session.postLoginRedirect
     }
   },
+
+  oidcLogin(req, res, next) {
+    return passport.authenticate('openidconnect')(req, res, next)
+  },
+
+  oidcLoginCallback(req, res, next) {
+    return passport.authenticate('openidconnect',
+        {failureRedirect: '/login', failureMessage: true}, function (err, user) {
+          AuthenticationController.finishLogin(user, req, res, next)
+        }
+    )(req, res, next)
+  },
+
+  verifyOpenIDConnect(issuer, profile, callback) {
+      User.findOne({email: profile.emails[0].value}, (error, user) => {
+        if (!user) {
+          UserCreator.createNewUser({
+            holdingAccount: false,
+            email: profile.emails[0].value,
+            first_name: profile.name.first_name,
+            last_name: profile.name.last_name
+          }, function (user) {
+            return callback(null, user);
+          })
+        } else {
+          return callback(null, user);
+        }
+      })
+    }
 }
 
 function _afterLoginSessionSetup(req, user, callback) {

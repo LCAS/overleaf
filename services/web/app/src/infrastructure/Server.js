@@ -24,7 +24,7 @@ const cookieParser = require('cookie-parser')
 const bearerTokenMiddleware = require('express-bearer-token')
 
 const passport = require('passport')
-const LocalStrategy = require('passport-local').Strategy
+const OpenIDConnectStrategy = require('passport-openidconnect').Strategy
 
 const oneDayInMilliseconds = 86400000
 const ReferalConnect = require('../Features/Referal/ReferalConnect')
@@ -207,16 +207,18 @@ if (Features.hasFeature('saas')) {
 webRouter.use(passport.initialize())
 webRouter.use(passport.session())
 
-passport.use(
-  new LocalStrategy(
-    {
-      passReqToCallback: true,
-      usernameField: 'email',
-      passwordField: 'password',
+passport.use(new OpenIDConnectStrategy({
+      issuer: process.env.OIDC_ISSUER,
+      authorizationURL: process.env.OIDC_AUTHORIZATION_URL,
+      tokenURL: process.env.OIDC_TOKEN_URL,
+      userInfoURL: process.env.OIDC_USERINFO_URL,
+      clientID: process.env.OIDC_CLIENT_ID,
+      clientSecret: process.env.OIDC_CLIENT_SECRET,
+      callbackURL: process.env.OIDC_CALLBACK_URL,
+      scope: 'openid profile email',
     },
-    AuthenticationController.doPassportLogin
-  )
-)
+    AuthenticationController.verifyOpenIDConnect));
+
 passport.serializeUser(AuthenticationController.serializeUser)
 passport.deserializeUser(AuthenticationController.deserializeUser)
 

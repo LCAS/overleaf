@@ -8,35 +8,11 @@ block content
 					.card
 						.page-header
 							h1 #{translate("log_in")}
-						form(data-ol-async-form, name="loginForm", action='/login', method="POST")
-							input(name='_csrf', type='hidden', value=csrfToken)
-							+formMessages()
-							+customFormMessage('invalid-password-retry-or-reset', 'danger')
-								| !{translate('email_or_password_wrong_try_again_or_reset', {}, [{ name: 'a', attrs: { href: '/user/password/reset', 'aria-describedby': 'resetPasswordDescription' } }])}
-								span.sr-only(id='resetPasswordDescription')
-									| #{translate('reset_password_link')}
-							+customValidationMessage('password-compromised')
-								| !{translate('password_compromised_try_again_or_use_known_device_or_reset', {}, [{name: 'a', attrs: {href: 'https://haveibeenpwned.com/passwords', rel: 'noopener noreferrer', target: '_blank'}}, {name: 'a', attrs: {href: '/user/password/reset', target: '_blank'}}])}.
-							.form-group
-								input.form-control(
-									type='email',
-									name='email',
-									required,
-									placeholder='email@example.com',
-									autofocus="true"
-								)
-							.form-group
-								input.form-control(
-									type='password',
-									name='password',
-									required,
-									placeholder='********',
-								)
-							.actions
-								button.btn-primary.btn(
-									type='submit',
-									data-ol-disabled-inflight
-								)
-									span(data-ol-inflight="idle") #{translate("login")}
-									span(hidden data-ol-inflight="pending") #{translate("logging_in")}…
-								a.pull-right(href='/user/password/reset') #{translate("forgot_your_password")}?
+						.card-body.text-center
+							p
+								| Willkommen auf dem Overleaf von&nbsp;
+								a(href="https://fachschaften.org ") fachschaften.org!
+							p
+								| Hier kannst du kollaborativ an LaTeX-Dokumenten arbeiten.
+								| Zur Nutzung brauchst du einen fachschaften.org-Account.
+							a.btn.btn-primary.mt-2(href="/login/oidc", role="button") fachschaften.org-Login
