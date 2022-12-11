@@ -108,6 +108,11 @@ const parseTextExtensions = function (extensions) {
 module.exports = {
   env: 'server-ce',
 
+  ldap: {
+    enable: true,
+    updateUserDetailsOnLogin: true
+  },
+
   limits: {
     httpGlobalAgentMaxSockets: 300,
     httpsGlobalAgentMaxSockets: 300,
