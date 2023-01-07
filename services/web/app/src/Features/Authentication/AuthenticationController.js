@@ -618,9 +618,7 @@ const AuthenticationController = {
             first_name: profile.name.givenName,
             last_name: profile.name.familyName
           }, function (user) {
-            UserUpdater.confirmEmail(user._id, profile.emails[0].value, null, function () {
-              return callback(null, user);
-            })
+            return callback(null, user);
           })
         } else {
           user.first_name = profile.name.givenName;
