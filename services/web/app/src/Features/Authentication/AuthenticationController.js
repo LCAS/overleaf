@@ -605,6 +605,9 @@ const AuthenticationController = {
   oidcLoginCallback(req, res, next) {
     return passport.authenticate('openidconnect',
         {failureRedirect: '/login', failureMessage: true}, function (err, user) {
+          if (err) {
+            return next(err)
+          }
           AuthenticationController.finishLogin(user, req, res, next)
         }
     )(req, res, next)
