@@ -6,3 +6,5 @@
 docker-compose.override.yml
 
 node_modules
+.direnv
+.devenv
