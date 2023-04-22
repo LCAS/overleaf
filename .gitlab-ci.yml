@@ -6,6 +6,17 @@ before_script:
   - mkdir -p /kaniko/.docker
   - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
 
+build_other:
+  stage: build
+  script:
+    - /kaniko/executor
+      --snapshotMode=redo
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/server-ce/Dockerfile
+      --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+  except:
+    - main
+
 build:
   stage: build
   script:
@@ -14,3 +25,6 @@ build:
       --context $CI_PROJECT_DIR
       --dockerfile $CI_PROJECT_DIR/server-ce/Dockerfile
       --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+      --destination "$CI_REGISTRY_IMAGE:latest"
+  only:
+    - main
