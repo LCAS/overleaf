@@ -1,20 +1,18 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    devenv.url = "github:cachix/devenv";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    systems.url = "github:nix-systems/default";
   };
 
-  outputs = inputs@{ flake-parts, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
-    imports = [ inputs.devenv.flakeModule ];
-    systems = [ "x86_64-linux" "aarch64-darwin" ];
-    perSystem = { config, self', inputs', pkgs, system, ... }: {
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+    systems = import inputs.systems;
+    perSystem = { pkgs, ... }: {
 
-      devenv.shells.default = {
-        languages.javascript.enable = true;
-        packages = [ pkgs.gnumake pkgs.gcc ];
-        enterShell = ''
-          echo "Hello World"
-        '';
+      devShells.default = pkgs.mkShellNoCC {
+        packages = [
+          pkgs.nodePackages.npm
+        ];
       };
 
     };
