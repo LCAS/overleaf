@@ -202,6 +202,7 @@ const UserSchema = new Schema(
     analyticsId: { type: String },
     completedTutorials: Schema.Types.Mixed,
     suspended: { type: Boolean },
+    oidcUID: { type: String },
   },
   { minimize: false }
 )

@@ -614,19 +614,33 @@ const AuthenticationController = {
   },
 
   verifyOpenIDConnect(issuer, profile, callback) {
-      User.findOne({email: profile.emails[0].value}, (error, user) => {
+      User.findOne({oidcUID: profile.username}, (error, user) => {
         if (!user) {
           UserCreator.createNewUser({
             holdingAccount: false,
             email: profile.emails[0].value,
             first_name: profile.name.givenName,
-            last_name: profile.name.familyName
+            last_name: profile.name.familyName,
+            oidcUID: profile.username
           }, function (user) {
             return callback(null, user);
           })
         } else {
           user.first_name = profile.name.givenName;
           user.last_name = profile.name.familyName;
+          user.oidcUID = profile.username;
+          if (user.email != profile.emails[0].value) {
+            user.email = profile.emails[0].value;
+
+            const reversedHostname = user.email.split('@')[1].split('').reverse().join('')
+            const emailData = {
+              email: user.email,
+              createdAt: new Date(),
+              reversedHostname,
+            }
+            user.emails = [emailData]
+          }
+
           user.save(function (error) {
             if (error) {
               return callback(error);
