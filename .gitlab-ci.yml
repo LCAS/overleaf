@@ -1,30 +1,71 @@
-image:
-  name: gcr.io/kaniko-project/executor:debug
-  entrypoint: [""]
+---
+stages:
+  - docker
 
-before_script:
-  - mkdir -p /kaniko/.docker
-  - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+.docker_template:
+  stage: docker
+  tags:
+    - docker
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  services:
+    - name: docker:dind
+      alias: docker
+  image: docker
+  before_script:
+    - apk add git
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
-build_other:
-  stage: build
+docker_other:
+  extends: .docker_template
   script:
-    - /kaniko/executor
-      --snapshotMode=redo
-      --context $CI_PROJECT_DIR
-      --dockerfile $CI_PROJECT_DIR/server-ce/Dockerfile
-      --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
-  except:
-    - main
+    - >-
+      docker build
+      --cache-from ${CI_REGISTRY_IMAGE}/base:main
+      --cache-from ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t "${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}"
+      -f ${CI_PROJECT_DIR}/server-ce/Dockerfile-base
+      ${CI_PROJECT_DIR}
+    - docker push ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+    - >-
+      docker build
+      --cache-from ${CI_REGISTRY_IMAGE}:main
+      --cache-from ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --build-arg SHARELATEX_BASE_TAG=${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+      --build-arg MONOREPO_REVISION=${CI_COMMIT_SHA}
+      -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
+      -f ${CI_PROJECT_DIR}/server-ce/Dockerfile
+      ${CI_PROJECT_DIR}
+    - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
 
-build:
-  stage: build
+docker_main:
+  extends: .docker_template
   script:
-    - /kaniko/executor
-      --snapshotMode=redo
-      --context $CI_PROJECT_DIR
-      --dockerfile $CI_PROJECT_DIR/server-ce/Dockerfile
-      --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
-      --destination "$CI_REGISTRY_IMAGE:latest"
-  only:
-    - main
+    - >-
+      docker build
+      --cache-from ${CI_REGISTRY_IMAGE}/base:main
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      -t "${CI_REGISTRY_IMAGE}/base:main"
+      -t "${CI_REGISTRY_IMAGE}/base:latest"
+      -f ${CI_PROJECT_DIR}/server-ce/Dockerfile-base
+      ${CI_PROJECT_DIR}
+    - docker push ${CI_REGISTRY_IMAGE}/base:main
+    - docker push ${CI_REGISTRY_IMAGE}/base:latest
+    - >-
+      docker build
+      --cache-from ${CI_REGISTRY_IMAGE}:main
+      --build-arg BUILDKIT_INLINE_CACHE=1
+      --build-arg SHARELATEX_BASE_TAG=${CI_REGISTRY_IMAGE}/base:main
+      --build-arg MONOREPO_REVISION=${CI_COMMIT_SHA}
+      -t "${CI_REGISTRY_IMAGE}:main"
+      -t "${CI_REGISTRY_IMAGE}:latest"
+      -f ${CI_PROJECT_DIR}/server-ce/Dockerfile
+      ${CI_PROJECT_DIR}
+    - docker push ${CI_REGISTRY_IMAGE}:main
+    - docker push ${CI_REGISTRY_IMAGE}:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
