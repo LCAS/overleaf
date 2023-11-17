@@ -615,15 +615,15 @@ const AuthenticationController = {
           UserCreator.createNewUser({
             holdingAccount: false,
             email: profile.emails[0].value,
-            first_name: profile.name.givenName,
-            last_name: profile.name.familyName,
+            first_name: profile.name?.givenName || "",
+            last_name: profile.name?.familyName || "",
             oidcUID: profile.username
           }, function (user) {
             return callback(null, user);
           })
         } else {
-          user.first_name = profile.name.givenName;
-          user.last_name = profile.name.familyName;
+          user.first_name = profile.name?.givenName || "";
+          user.last_name = profile.name?.familyName || "";
           user.oidcUID = profile.username;
           if (user.email != profile.emails[0].value) {
             user.email = profile.emails[0].value;
