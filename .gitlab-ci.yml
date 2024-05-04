@@ -28,7 +28,6 @@ docker_other:
       -f ${CI_PROJECT_DIR}/server-ce/Dockerfile-base
       ${CI_PROJECT_DIR}
     - docker push ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
-    - sleep 1h
     - >-
       docker build
       --cache-from ${CI_REGISTRY_IMAGE}:main
