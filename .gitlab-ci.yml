@@ -34,7 +34,7 @@ docker_other:
       --cache-from ${CI_REGISTRY_IMAGE}:main
       --cache-from ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
       --build-arg BUILDKIT_INLINE_CACHE=1
-      --build-arg SHARELATEX_BASE_TAG=${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+      --build-arg OVERLEAF_BASE_TAG=${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
       --build-arg MONOREPO_REVISION=${CI_COMMIT_SHA}
       -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
       -f ${CI_PROJECT_DIR}/server-ce/Dockerfile
@@ -60,7 +60,7 @@ docker_main:
       docker build
       --cache-from ${CI_REGISTRY_IMAGE}:main
       --build-arg BUILDKIT_INLINE_CACHE=1
-      --build-arg SHARELATEX_BASE_TAG=${CI_REGISTRY_IMAGE}/base:main
+      --build-arg OVERLEAF_BASE_TAG=${CI_REGISTRY_IMAGE}/base:main
       --build-arg MONOREPO_REVISION=${CI_COMMIT_SHA}
       -t "${CI_REGISTRY_IMAGE}:main"
       -t "${CI_REGISTRY_IMAGE}:latest"
