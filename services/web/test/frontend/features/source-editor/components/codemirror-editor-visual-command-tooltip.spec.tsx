@@ -58,8 +58,8 @@ describe('<CodeMirrorEditor/> command tooltip in Visual mode', function () {
     // open the link
     cy.findByRole('button', { name: 'Go to page' }).click()
     cy.get('@window-open').should(
-      'have.been.calledOnceWithExactly',
-      'https://example.com',
+      'have.been.calledWithMatch',
+      Cypress.sinon.match.has('href', 'https://example.com/'),
       '_blank'
     )
 
@@ -116,8 +116,8 @@ describe('<CodeMirrorEditor/> command tooltip in Visual mode', function () {
     // open the link
     cy.findByRole('button', { name: 'Go to page' }).click()
     cy.get('@window-open').should(
-      'have.been.calledOnceWithExactly',
-      'https://example.com',
+      'have.been.calledWithMatch',
+      Cypress.sinon.match.has('href', 'https://example.com/'),
       '_blank'
     )
   })
