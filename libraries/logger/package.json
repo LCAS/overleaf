@@ -23,7 +23,6 @@
     "types:rebuild": "rm -rf types && npm run types:build"
   },
   "dependencies": {
-    "@google-cloud/logging-bunyan": "^5.0.0",
     "@overleaf/fetch-utils": "*",
     "@overleaf/o-error": "*",
     "@sentry/node": "^6.13.2",
