@@ -1,6 +1,12 @@
 {
   "name": "overleaf",
   "private": true,
+  "overrides": {
+    "swagger-tools": {
+      "multer": "1.4.5-lts.1",
+      "qs": "6.5.3"
+    }
+  },
   "dependencies": {
     "patch-package": "^8.0.0"
   },
