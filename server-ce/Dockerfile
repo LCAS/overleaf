@@ -115,3 +115,14 @@ ENV LOG_LEVEL "info"
 EXPOSE 80
 
 ENTRYPOINT ["/sbin/my_init"]
+
+
+
+
+# Patches for 5.0.4
+RUN npm install --include-workspace-root -w services/history-v1 swagger-tools@0.10.4 && rm -rf /root/.cache /root/.npm $(find /tmp/ -mindepth 1 -maxdepth 1)
+RUN npm uninstall -w libraries/logger @google-cloud/logging-bunyan
+RUN npm uninstall -w libraries/metrics @google-cloud/opentelemetry-cloud-trace-exporter @google-cloud/profiler
+RUN npm uninstall -w services/web passport-twitter
+RUN rm -r services/web/scripts/translations
+RUN npm audit --audit-level=high
