@@ -265,6 +265,12 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
     webRouter.get('/register', UserPagesController.registerPage)
     AuthenticationController.addEndpointToLoginWhitelist('/register')
   }
+  else {
+    webRouter.get('/register', function (req, res, next) {
+      res.redirect('/login')
+    })
+    AuthenticationController.addEndpointToLoginWhitelist('/register')
+  }
 
   EditorRouter.apply(webRouter, privateApiRouter)
   CollaboratorsRouter.apply(webRouter, privateApiRouter)
