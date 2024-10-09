@@ -85,10 +85,13 @@ globalThis.fetch =
   window.fetch =
     (url, ...options) => fetch(new URL(url, 'http://127.0.0.1'), ...options)
 
-// ignore CSS files
+// ignore CSS/LESS files
 const { addHook } = require('pirates')
-addHook(() => '', { exts: ['.css'], ignoreNodeModules: false })
+addHook(() => '', { exts: ['.css', '.less'], ignoreNodeModules: false })
 
 globalThis.HTMLElement.prototype.scrollIntoView = () => {}
 
 globalThis.DOMParser = window.DOMParser
+
+// Polyfill for IndexedDB
+require('fake-indexeddb/auto')

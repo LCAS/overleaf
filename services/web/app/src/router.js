@@ -41,6 +41,7 @@ const Modules = require('./infrastructure/Modules')
 const {
   RateLimiter,
   openProjectRateLimiter,
+  overleafLoginRateLimiter,
 } = require('./infrastructure/RateLimiter')
 const RateLimiterMiddleware = require('./Features/Security/RateLimiterMiddleware')
 const InactiveProjectController = require('./Features/InactiveData/InactiveProjectController')
@@ -55,7 +56,6 @@ const TokenAccessRouter = require('./Features/TokenAccess/TokenAccessRouter')
 const Features = require('./infrastructure/Features')
 const LinkedFilesRouter = require('./Features/LinkedFiles/LinkedFilesRouter')
 const TemplatesRouter = require('./Features/Templates/TemplatesRouter')
-const InstitutionsController = require('./Features/Institutions/InstitutionsController')
 const UserMembershipRouter = require('./Features/UserMembership/UserMembershipRouter')
 const SystemMessageController = require('./Features/SystemMessages/SystemMessageController')
 const AnalyticsRegistrationSourceMiddleware = require('./Features/Analytics/AnalyticsRegistrationSourceMiddleware')
@@ -125,6 +125,20 @@ const rateLimiters = {
     points: 30,
     duration: 60 * 60,
   }),
+  flushHistory: new RateLimiter('flush-project-history', {
+    // Allow flushing once every 30s-1s (allow for network jitter).
+    points: 1,
+    duration: 30 - 1,
+  }),
+  getProjectBlob: new RateLimiter('get-project-blob', {
+    // Download project in full once per hour
+    points: Settings.maxEntitiesPerProject,
+    duration: 60 * 60,
+  }),
+  getHistorySnapshot: new RateLimiter(
+    'get-history-snapshot',
+    openProjectRateLimiter.getOptions()
+  ),
   endorseEmail: new RateLimiter('endorse-email', {
     points: 30,
     duration: 60,
@@ -227,6 +241,8 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
 
   webRouter.post(
     '/login',
+    RateLimiterMiddleware.rateLimit(overleafLoginRateLimiter), // rate limit IP (20 / 60s)
+    RateLimiterMiddleware.loginRateLimitEmail, // rate limit email (10 / 120s)
     CaptchaMiddleware.validateCaptcha('login'),
     AuthenticationController.passportLogin
   )
@@ -244,6 +260,8 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
     webRouter.get('/login/legacy', UserPagesController.loginPage)
     webRouter.post(
       '/login/legacy',
+      RateLimiterMiddleware.rateLimit(overleafLoginRateLimiter), // rate limit IP (20 / 60s)
+      RateLimiterMiddleware.loginRateLimitEmail, // rate limit email (10 / 120s)
       CaptchaMiddleware.validateCaptcha('login'),
       AuthenticationController.passportLogin
     )
@@ -338,6 +356,7 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
     '/user/emails/resend_confirmation',
     AuthenticationController.requireLogin(),
     RateLimiterMiddleware.rateLimit(rateLimiters.resendConfirmation),
+    Modules.middleware('resendConfirmationEmail'),
     UserEmailsController.resendConfirmation
   )
 
@@ -368,6 +387,7 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
       '/user/emails/delete',
       AuthenticationController.requireLogin(),
       RateLimiterMiddleware.rateLimit(rateLimiters.deleteEmail),
+      Modules.middleware('userDeleteEmail'),
       UserEmailsController.remove
     )
     webRouter.post(
@@ -790,6 +810,11 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
     AuthorizationMiddleware.ensureUserCanWriteProjectContent,
     HistoryController.revertFile
   )
+  webRouter.post(
+    '/project/:project_id/revert-project',
+    AuthorizationMiddleware.ensureUserCanWriteProjectContent,
+    HistoryController.revertProject
+  )
   webRouter.get(
     '/project/:project_id/version/:version/zip',
     RateLimiterMiddleware.rateLimit(rateLimiters.downloadProjectRevision),
@@ -1155,34 +1180,6 @@ function initialize(webRouter, privateApiRouter, publicApiRouter) {
     '/beta/opt-out',
     AuthenticationController.requireLogin(),
     BetaProgramController.optOut
-  )
-
-  // New "api" endpoints. Started as a way for v1 to call over to v2 (for
-  // long-term features, as opposed to the nominally temporary ones in the
-  // overleaf-integration module), but may expand beyond that role.
-  publicApiRouter.post(
-    '/api/clsi/compile/:submission_id',
-    AuthenticationController.requirePrivateApiAuth(),
-    CompileController.compileSubmission
-  )
-  publicApiRouter.get(
-    /^\/api\/clsi\/compile\/([^/]*)\/build\/([0-9a-f-]+)\/output\/(.*)$/,
-    function (req, res, next) {
-      const params = {
-        submission_id: req.params[0],
-        build_id: req.params[1],
-        file: req.params[2],
-      }
-      req.params = params
-      next()
-    },
-    AuthenticationController.requirePrivateApiAuth(),
-    CompileController.getFileFromClsiWithoutUser
-  )
-  publicApiRouter.post(
-    '/api/institutions/confirm_university_domain',
-    AuthenticationController.requirePrivateApiAuth(),
-    InstitutionsController.confirmDomain
   )
 
   webRouter.get('/chrome', function (req, res, next) {

@@ -6,6 +6,10 @@ const http = require('http')
 const https = require('https')
 
 /**
+ * @import { Response } from 'node-fetch'
+ */
+
+/**
  * Make a request and return the parsed JSON response.
  *
  * @param {string | URL} url - request URL
@@ -21,7 +25,7 @@ async function fetchJson(url, opts = {}) {
 async function fetchJsonWithResponse(url, opts = {}) {
   const { fetchOpts } = parseOpts(opts)
   fetchOpts.headers = fetchOpts.headers ?? {}
-  fetchOpts.headers.Accept = 'application/json'
+  fetchOpts.headers.Accept = fetchOpts.headers.Accept ?? 'application/json'
 
   const response = await performRequest(url, fetchOpts)
   if (!response.ok) {
@@ -240,8 +244,6 @@ async function discardResponseBody(response) {
 }
 
 /**
- * @typedef {import('node-fetch').Response} Response
- *
  * @param {Response} response
  */
 async function maybeGetResponseBody(response) {

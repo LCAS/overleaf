@@ -60,6 +60,11 @@ import { useLayoutContext } from '@/shared/context/layout-context'
 import { debugConsole } from '@/utils/debugging'
 import { useMetadataContext } from '@/features/ide-react/context/metadata-context'
 import { useUserContext } from '@/shared/context/user-context'
+import { useReferencesContext } from '@/features/ide-react/context/references-context'
+import { setMathPreview } from '@/features/source-editor/extensions/math-preview'
+import { useRangesContext } from '@/features/review-panel-new/context/ranges-context'
+import { updateRanges } from '@/features/source-editor/extensions/ranges'
+import { useThreadsContext } from '@/features/review-panel-new/context/threads-context'
 
 function useCodeMirrorScope(view: EditorView) {
   const { fileTreeData } = useFileTreeData()
@@ -95,6 +100,7 @@ function useCodeMirrorScope(view: EditorView) {
     autoPairDelimiters,
     mode,
     syntaxValidation,
+    mathPreview,
   } = userSettings
 
   const [cursorHighlights] = useScopeValue<Record<string, Highlight[]>>(
@@ -107,7 +113,10 @@ function useCodeMirrorScope(view: EditorView) {
 
   const [visual] = useScopeValue<boolean>('editor.showVisual')
 
-  const [references] = useScopeValue<{ keys: string[] }>('$root._references')
+  const { referenceKeys } = useReferencesContext()
+
+  const ranges = useRangesContext()
+  const threads = useThreadsContext()
 
   // build the translation phrases
   const phrases = usePhrases()
@@ -152,12 +161,15 @@ function useCodeMirrorScope(view: EditorView) {
     autoPairDelimiters,
     mode,
     syntaxValidation,
+    mathPreview,
   })
 
   const currentDocRef = useRef({
     currentDoc,
     trackChanges,
     loadingThreads,
+    threads,
+    ranges,
   })
 
   useEffect(() => {
@@ -165,6 +177,16 @@ function useCodeMirrorScope(view: EditorView) {
       currentDocRef.current.currentDoc = currentDoc
     }
   }, [view, currentDoc])
+
+  useEffect(() => {
+    currentDocRef.current.ranges = ranges
+    currentDocRef.current.threads = threads
+    if (ranges && threads) {
+      window.setTimeout(() => {
+        view.dispatch(updateRanges({ ranges, threads }))
+      })
+    }
+  }, [view, ranges, threads])
 
   const docNameRef = useRef(docName)
 
@@ -201,10 +223,16 @@ function useCodeMirrorScope(view: EditorView) {
     view.dispatch(setSpelling(spellingRef.current))
   }, [view, spellCheckLanguage])
 
-  // listen to doc:after-opened, and focus the editor
+  // listen to doc:after-opened, and focus the editor if it's not a new doc
   useEffect(() => {
-    const listener = () => {
-      scheduleFocus(view)
+    const listener: EventListener = event => {
+      const { isNewDoc } = (event as CustomEvent<{ isNewDoc: boolean }>).detail
+
+      if (!isNewDoc) {
+        window.setTimeout(() => {
+          view.focus()
+        }, 0)
+      }
     }
     window.addEventListener('doc:after-opened', listener)
     return () => window.removeEventListener('doc:after-opened', listener)
@@ -214,31 +242,33 @@ function useCodeMirrorScope(view: EditorView) {
   // TODO: read this data from the scope?
   const metadataRef = useRef({
     ...metadata,
-    references: references.keys,
+    referenceKeys,
     fileTreeData,
   })
 
   // listen to project metadata (commands, labels and package names) updates
   useEffect(() => {
     metadataRef.current = { ...metadataRef.current, ...metadata }
-    view.dispatch(setMetadata(metadataRef.current))
+    window.setTimeout(() => {
+      view.dispatch(setMetadata(metadataRef.current))
+    })
   }, [view, metadata])
 
   // listen to project reference keys updates
   useEffect(() => {
-    const listener = (event: Event) => {
-      metadataRef.current.references = (event as CustomEvent<string[]>).detail
+    metadataRef.current.referenceKeys = referenceKeys
+    window.setTimeout(() => {
       view.dispatch(setMetadata(metadataRef.current))
-    }
-    window.addEventListener('project:references', listener)
-    return () => window.removeEventListener('project:references', listener)
-  }, [view])
+    })
+  }, [view, referenceKeys])
 
   // listen to project root folder updates
   useEffect(() => {
     if (fileTreeData) {
       metadataRef.current.fileTreeData = fileTreeData
-      view.dispatch(setMetadata(metadataRef.current))
+      window.setTimeout(() => {
+        view.dispatch(setMetadata(metadataRef.current))
+      })
     }
   }, [view, fileTreeData])
 
@@ -388,6 +418,11 @@ function useCodeMirrorScope(view: EditorView) {
     view.dispatch(setSyntaxValidation(syntaxValidation))
   }, [view, syntaxValidation])
 
+  useEffect(() => {
+    settingsRef.current.mathPreview = mathPreview
+    view.dispatch(setMathPreview(mathPreview))
+  }, [view, mathPreview])
+
   const emitSyncToPdf = useScopeEventEmitter('cursor:editor:syncToPdf')
 
   const handleGoToLine = useCallback(
@@ -468,7 +503,7 @@ function useCodeMirrorScope(view: EditorView) {
       // dispatch in a timeout, so the dispatch isn't in the same cycle as the edit which caused it
       window.setTimeout(() => {
         view.dispatch(
-          setAnnotations(view.state.doc, annotations || []),
+          setAnnotations(view.state, annotations || []),
           // reconfigure the compile log lint source, so it runs once with the new data
           showCompileLogDiagnostics(enableCompileLogLinterRef.current)
         )
@@ -525,9 +560,3 @@ function useCodeMirrorScope(view: EditorView) {
 }
 
 export default useCodeMirrorScope
-
-const scheduleFocus = (view: EditorView) => {
-  window.setTimeout(() => {
-    view.focus()
-  }, 0)
-}

@@ -56,9 +56,34 @@
 @mixin modal-lg {
   max-width: 960px;
 }
+
 @mixin modal-md {
   max-width: 640px;
 }
+
 @mixin modal-sm {
   max-width: 480px;
+}
+
+// Toolbar
+@mixin toolbar-sm-height {
+  height: 32px;
+}
+
+@mixin toolbar-alt-bg() {
+  background-color: var(--bg-dark-secondary);
+}
+
+@mixin theme($name) {
+  @if index($themes, $name) {
+    [data-theme='#{$name}'] {
+      @content;
+    }
+  } @else {
+    @error 'Theme "#{$name}" is not supported. Supported themes are: #{$themes}.';
+  }
+}
+
+@mixin box-shadow-button-input {
+  box-shadow: 0 0 0 2px var(--blue-30);
 }

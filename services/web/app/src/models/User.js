@@ -72,6 +72,7 @@ const UserSchema = new Schema(
     lastLoggedIn: { type: Date },
     lastLoginIp: { type: String, default: '' },
     lastPrimaryEmailCheck: { type: Date },
+    lastTrial: { type: Date },
     loginCount: { type: Number, default: 0 },
     holdingAccount: { type: Boolean, default: false },
     ace: {
@@ -86,6 +87,7 @@ const UserSchema = new Schema(
       syntaxValidation: { type: Boolean },
       fontFamily: { type: String },
       lineHeight: { type: String },
+      mathPreview: { type: Boolean, default: true },
     },
     features: {
       collaborators: {
@@ -178,7 +180,7 @@ const UserSchema = new Schema(
       zotero: Schema.Types.Mixed,
     },
     writefull: {
-      enabled: { type: Boolean, default: false },
+      enabled: { type: Boolean, default: null },
     },
     alphaProgram: { type: Boolean, default: false }, // experimental features
     betaProgram: { type: Boolean, default: false },

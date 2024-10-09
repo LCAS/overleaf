@@ -7,7 +7,7 @@ const {
 } = require('../../app/src/models/DeletedSubscription')
 const minimist = require('minimist')
 const _ = require('lodash')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 
 let FETCH_LIMIT, COMMIT, VERBOSE
 
@@ -16,8 +16,10 @@ async function main() {
 
   console.log('## Syncing group subscription memberships...')
 
-  const subscriptionsCount = await Subscription.count({ groupPlan: true })
-  const deletedSubscriptionsCount = await DeletedSubscription.count({
+  const subscriptionsCount = await Subscription.countDocuments({
+    groupPlan: true,
+  })
+  const deletedSubscriptionsCount = await DeletedSubscription.countDocuments({
     'subscription.groupPlan': true,
   })
 

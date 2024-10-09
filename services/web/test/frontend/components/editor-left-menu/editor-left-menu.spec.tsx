@@ -1,3 +1,4 @@
+import '../../helpers/bootstrap-3'
 import EditorLeftMenu from '../../../../frontend/js/features/editor-left-menu/components/editor-left-menu'
 import {
   AllowedImageName,
@@ -266,7 +267,7 @@ describe('<EditorLeftMenu />', function () {
 
         cy.findByRole('button', { name: 'Git' }).click()
         cy.findByText('Clone with Git')
-        cy.findByText(/your project using the link displayed below/)
+        cy.findByText(/clone your project by using the link below/)
       })
 
       it('shows git modal paywall correctly', function () {

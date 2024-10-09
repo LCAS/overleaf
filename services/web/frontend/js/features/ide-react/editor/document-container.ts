@@ -127,9 +127,7 @@ export class DocumentContainer extends EventEmitter {
     if (this.doc) {
       this.doc.attachToCM6(this.cm6)
     }
-    if (this.cm6) {
-      this.cm6.on('change', this.checkConsistency)
-    }
+    this.cm6.on('change', this.checkConsistency)
   }
 
   detachFromCM6() {
@@ -459,7 +457,7 @@ export class DocumentContainer extends EventEmitter {
         'joinDoc',
         this.doc_id,
         this.doc.getVersion(),
-        { encodeRanges: true },
+        { encodeRanges: true, age: this.doc.getTimeSinceLastServerActivity() },
         (error, docLines, version, updates, ranges) => {
           if (error) {
             callback?.(error)

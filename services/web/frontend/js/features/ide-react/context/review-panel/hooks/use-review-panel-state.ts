@@ -64,7 +64,6 @@ import {
   EditOperation,
 } from '../../../../../../../types/change'
 import { RangesTrackerWithResolvedThreadIds } from '@/features/ide-react/editor/document-container'
-import useViewerPermissions from '@/shared/hooks/use-viewer-permissions'
 import getMeta from '@/utils/meta'
 import { useEditorContext } from '@/shared/context/editor-context'
 
@@ -152,7 +151,6 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   const permissions = usePermissionsContext()
   const { showGenericMessageModal } = useModalsContext()
   const addCommentEmitter = useScopeEventEmitter('comment:start_adding')
-  const hasViewerPermissions = useViewerPermissions()
 
   const layoutToLeft = useLayoutToLeft('.ide-react-editor-panel')
   const [subView, setSubView] =
@@ -282,7 +280,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
           const tempUsers = {} as ReviewPanel.Value<'users'>
           // Always include ourself, since if we submit an op, we might need to display info
           // about it locally before it has been flushed through the server
-          if (user) {
+          if (user?.id) {
             tempUsers[user.id] = formatUser(user)
           }
 
@@ -420,7 +418,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
         }
 
         if (!users[change.metadata.user_id]) {
-          if (!(isRestrictedTokenMember || hasViewerPermissions)) {
+          if (!isRestrictedTokenMember) {
             refreshChangeUsers(change.metadata.user_id)
           }
         }
@@ -428,10 +426,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
 
       let localResolvedThreadIds = resolvedThreadIds
 
-      if (
-        !(isRestrictedTokenMember || hasViewerPermissions) &&
-        rangesTracker.comments.length > 0
-      ) {
+      if (!isRestrictedTokenMember && rangesTracker.comments.length > 0) {
         const threadsLoadResult = await ensureThreadsAreLoaded()
         if (threadsLoadResult?.resolvedThreadIds) {
           localResolvedThreadIds = threadsLoadResult.resolvedThreadIds
@@ -494,7 +489,6 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
       ensureThreadsAreLoaded,
       loadingThreads,
       setLoadingThreads,
-      hasViewerPermissions,
       isRestrictedTokenMember,
     ]
   )
@@ -724,7 +718,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   )
 
   const applyTrackChangesStateToClient = useCallback(
-    (state: boolean | ReviewPanel.Value<'trackChangesState'>) => {
+    (state: boolean | Record<UserId | '__guests__', boolean>) => {
       if (typeof state === 'boolean') {
         setEveryoneTCState(state)
         setGuestsTCState(state)
@@ -1189,8 +1183,8 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   // listen for events from the CodeMirror 6 track changes extension
   useEffect(() => {
     const toggleTrackChangesFromKbdShortcut = () => {
-      if (trackChangesVisible && trackChanges) {
-        const userId: UserId = user.id
+      const userId = user.id
+      if (trackChangesVisible && trackChanges && userId) {
         const state = trackChangesState[userId]
         if (state) {
           toggleTrackChangesForUser(!state.value, userId)
@@ -1497,17 +1491,6 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   }, [reviewPanelOpen])
 
   const canRefreshRanges = useRef(false)
-  useEffect(() => {
-    if (subView === 'overview' && canRefreshRanges.current) {
-      canRefreshRanges.current = false
-
-      setIsOverviewLoading(true)
-      refreshRanges().finally(() => {
-        setIsOverviewLoading(false)
-      })
-    }
-  }, [subView, refreshRanges])
-
   const prevSubView = useRef(subView)
   const initializedPrevSubView = useRef(false)
   useEffect(() => {
@@ -1520,6 +1503,17 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
     // Allow refreshing ranges once for each `subView` change
     canRefreshRanges.current = true
   }, [subView])
+
+  useEffect(() => {
+    if (subView === 'overview' && canRefreshRanges.current) {
+      canRefreshRanges.current = false
+
+      setIsOverviewLoading(true)
+      refreshRanges().finally(() => {
+        setIsOverviewLoading(false)
+      })
+    }
+  }, [subView, refreshRanges])
 
   useEffect(() => {
     if (subView === 'cur_file' && prevSubView.current === 'overview') {

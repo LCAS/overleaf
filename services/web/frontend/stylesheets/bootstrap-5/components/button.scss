@@ -86,6 +86,7 @@
 
     background: var(--premium-gradient);
     transition: none;
+
     &:hover {
       background: var(--blue-70);
     }
@@ -103,14 +104,17 @@
   text-decoration: underline;
   font-size: inherit;
   vertical-align: inherit;
+  border-radius: 0;
 
   &,
   &:active,
   &[disabled],
   fieldset[disabled] & {
     background-color: transparent;
+
     @include box-shadow(none);
   }
+
   &:hover,
   &:focus {
     color: var(--link-ui-hover);
@@ -120,11 +124,13 @@
 
   &.btn-danger {
     color: var(--content-danger);
-    //since it's a link, override the button states
+
+    // since it's a link, override the button states
     &:active {
       color: var(--content-danger);
       background-color: transparent;
     }
+
     &:focus-visible {
       background-color: transparent;
       outline: -webkit-focus-ring-color auto 1px;
@@ -134,6 +140,7 @@
 
 .btn-inline-link {
   @extend .btn-link;
+
   font-size: inherit;
   padding: 0;
   vertical-align: inherit;
@@ -214,4 +221,20 @@ a.btn:visited {
 // Copy icon button
 .copy-button {
   text-decoration: none;
+}
+
+.btn-reset {
+  @include reset-button;
+}
+
+.btn-transparent {
+  background: none !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  font-weight: 400;
+
+  &:hover {
+    background: none !important;
+    color: inherit !important;
+  }
 }

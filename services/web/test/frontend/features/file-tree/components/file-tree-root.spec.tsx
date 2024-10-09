@@ -1,3 +1,4 @@
+import '../../../helpers/bootstrap-3'
 import FileTreeRoot from '../../../../../frontend/js/features/file-tree/components/file-tree-root'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import { SocketIOMock } from '@/ide/connection/SocketIoShim'
@@ -30,7 +31,6 @@ describe('<FileTreeRoot/>', function () {
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -73,7 +73,6 @@ describe('<FileTreeRoot/>', function () {
         >
           <FileTreeRoot
             refProviders={{}}
-            reindexReferences={cy.stub()}
             setRefProviderEnabled={cy.stub()}
             setStartedFreeTrial={cy.stub()}
             onSelect={cy.stub()}
@@ -91,7 +90,7 @@ describe('<FileTreeRoot/>', function () {
       ctrlKey: true,
       cmdKey: true,
     })
-    cy.findByRole('button', { name: 'Menu' }).click()
+    cy.findByRole('button', { name: 'Open main.tex action menu' }).click()
     cy.findByRole('menuitem', { name: 'Delete' }).click()
     cy.findByRole('button', { name: 'Cancel' })
   })
@@ -117,7 +116,6 @@ describe('<FileTreeRoot/>', function () {
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -154,7 +152,6 @@ describe('<FileTreeRoot/>', function () {
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub().as('onSelect')}
@@ -202,7 +199,6 @@ describe('<FileTreeRoot/>', function () {
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -247,7 +243,6 @@ describe('<FileTreeRoot/>', function () {
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -261,7 +256,10 @@ describe('<FileTreeRoot/>', function () {
     cy.findByRole('treeitem', { name: 'other.tex', selected: false })
 
     // single item selected: menu button is visible
-    cy.findAllByRole('button', { name: 'Menu' }).should('have.length', 1)
+    cy.findAllByRole('button', { name: 'Open main.tex action menu' }).should(
+      'have.length',
+      1
+    )
 
     // select the other item
     cy.findByRole('treeitem', { name: 'other.tex' }).click()
@@ -270,7 +268,10 @@ describe('<FileTreeRoot/>', function () {
     cy.findByRole('treeitem', { name: 'other.tex', selected: true })
 
     // single item selected: menu button is visible
-    cy.findAllByRole('button', { name: 'Menu' }).should('have.length', 1)
+    cy.findAllByRole('button', { name: 'Open other.tex action menu' }).should(
+      'have.length',
+      1
+    )
 
     // multi-select the main item
     cy.findByRole('treeitem', { name: 'main.tex' }).click({
@@ -282,7 +283,10 @@ describe('<FileTreeRoot/>', function () {
     cy.findByRole('treeitem', { name: 'other.tex', selected: true })
 
     // multiple items selected: no menu button is visible
-    cy.findAllByRole('button', { name: 'Menu' }).should('have.length', 0)
+    cy.findAllByRole('button', { name: 'Open main.tex action menu' }).should(
+      'have.length',
+      0
+    )
   })
 
   describe('when deselecting files', function () {
@@ -318,7 +322,6 @@ describe('<FileTreeRoot/>', function () {
         >
           <FileTreeRoot
             refProviders={{}}
-            reindexReferences={cy.stub()}
             setRefProviderEnabled={cy.stub()}
             setStartedFreeTrial={cy.stub()}
             onSelect={cy.stub()}

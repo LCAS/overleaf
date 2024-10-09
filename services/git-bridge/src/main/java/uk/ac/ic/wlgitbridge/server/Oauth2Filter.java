@@ -46,10 +46,15 @@ public class Oauth2Filter implements Filter {
    *
    * So, for projects that need auth, we return 401. Git will swallow this
    * and prompt the user for user/pass, and then make a brand new request.
+   *
    * @param servletRequest
+   *
    * @param servletResponse
+   *
    * @param filterChain
+   *
    * @throws IOException
+   *
    * @throws ServletException
    */
   @Override
@@ -116,21 +121,9 @@ public class Oauth2Filter implements Filter {
       }
       cred.setAccessToken(password);
     } else if (this.isUserPasswordEnabled) {
-      String accessToken = null;
-      try {
-        accessToken = doPasswordGrantFlow(username, password, getClientIp(request));
-      } catch (TokenResponseException e) {
-        int statusCode = e.getStatusCode();
-        if (statusCode == 429) {
-          handleRateLimit(projectId, username, request, response);
-        } else if (statusCode == 400 || statusCode == 401) {
-          handleNeedAuthorization(projectId, username, request, response);
-        } else {
-          handleUnknownOauthServerError(projectId, statusCode, request, response);
-        }
-        return;
-      }
-      cred.setAccessToken(accessToken);
+      // password auth has been deprecated for git-bridge
+      handlePasswordAuthenticationDeprecation(projectId, request, response);
+      return;
     } else {
       handleNeedAuthorization(projectId, username, request, response);
       return;
@@ -271,6 +264,17 @@ public class Oauth2Filter implements Filter {
     sendResponse(response, 500, Arrays.asList("Unexpected server error. Please try again later."));
   }
 
+  private void handlePasswordAuthenticationDeprecation(
+      String projectId, HttpServletRequest request, HttpServletResponse response)
+      throws IOException {
+    Log.info("[{}] Password authentication deprecated, ip={}", projectId, getClientIp(request));
+    sendResponse(
+        response,
+        403,
+        Arrays.asList(
+            "Overleaf now only supports Git authentication tokens to access git. See: https://www.overleaf.com/learn/how-to/Git_integration_authentication_tokens"));
+  }
+
   /*
    * Gets the remote IP from the request.
    */
@@ -316,25 +320,5 @@ public class Oauth2Filter implements Filter {
     String username = split[0];
     String password = split[1];
     return new BasicAuthCredentials(username, password);
-  }
-
-  /*
-   * Perform a password grant flow with the OAuth server and return an access token.
-   *
-   * The access token is null if the password grant flow was unsuccessful.
-   */
-  private String doPasswordGrantFlow(String username, String password, String clientIp)
-      throws IOException {
-    return new PasswordTokenRequest(
-            Instance.httpTransport,
-            Instance.jsonFactory,
-            new GenericUrl(oauth2.getOauth2Server() + "/oauth/token?client_ip=" + clientIp),
-            username,
-            password)
-        .setClientAuthentication(
-            new ClientParametersAuthentication(
-                oauth2.getOauth2ClientID(), oauth2.getOauth2ClientSecret()))
-        .execute()
-        .getAccessToken();
   }
 }

@@ -27,15 +27,11 @@ const SplitTestHandler = require('../SplitTests/SplitTestHandler')
 const SplitTestSessionHandler = require('../SplitTests/SplitTestSessionHandler')
 const SubscriptionLocator = require('../Subscription/SubscriptionLocator')
 
-/** @typedef {import("./types").GetProjectsRequest} GetProjectsRequest */
-/** @typedef {import("./types").GetProjectsResponse} GetProjectsResponse */
-/** @typedef {import("../../../../types/project/dashboard/api").ProjectApi} ProjectApi */
-/** @typedef {import("../../../../types/project/dashboard/api").Filters} Filters */
-/** @typedef {import("../../../../types/project/dashboard/api").Page} Page */
-/** @typedef {import("../../../../types/project/dashboard/api").Sort} Sort */
-/** @typedef {import("./types").AllUsersProjects} AllUsersProjects */
-/** @typedef {import("./types").MongoProject} MongoProject */
-/** @typedef {import("../Tags/types").Tag} Tag */
+/**
+ * @import { GetProjectsRequest, GetProjectsResponse, AllUsersProjects, MongoProject } from "./types"
+ * @import { ProjectApi, Filters, Page, Sort } from "../../../../types/project/dashboard/api"
+ * @import { Tag } from "../Tags/types"
+ */
 
 const _ssoAvailable = (affiliation, session, linkedInstitutionIds) => {
   if (!affiliation.institution) return false
@@ -169,6 +165,16 @@ async function projectListPage(req, res, next) {
 
     if (user && UserPrimaryEmailCheckHandler.requiresPrimaryEmailCheck(user)) {
       return res.redirect('/user/emails/primary-email-check')
+    }
+  } else {
+    if (!process.env.OVERLEAF_IS_SERVER_PRO) {
+      // temporary survey for CE: https://github.com/overleaf/internal/issues/19710
+      survey = {
+        name: 'ce-survey',
+        preText: 'Help us improve Overleaf',
+        linkText: 'by filling out this quick survey',
+        url: 'https://docs.google.com/forms/d/e/1FAIpQLSdPAS-731yaLOvRM8HW7j6gVeOpcmB_X5A5qwgNJT7Oj09lLA/viewform?usp=sf_link',
+      }
     }
   }
 
@@ -431,12 +437,6 @@ async function projectListPage(req, res, next) {
     req,
     res,
     'bootstrap-5-project-dashboard'
-  )
-
-  await SplitTestHandler.promises.getAssignment(
-    req,
-    res,
-    'ai-fake-door-offering-test'
   )
 
   res.render('project/list-react', {

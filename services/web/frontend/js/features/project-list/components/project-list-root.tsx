@@ -97,7 +97,6 @@ function ProjectListPageContent() {
           filter={filter}
           selectedTag={selectedTag}
           className="overflow-hidden"
-          formGroupProps={{ className: 'mb-0' }}
         />
       </div>
     </div>
@@ -192,7 +191,11 @@ function ProjectListPageContent() {
                   bsVersion({ bs5: 'd-md-none', bs3: 'visible-xs' })
                 )}
               >
-                <div role="toolbar" className="projects-toolbar">
+                <div
+                  role="toolbar"
+                  className="projects-toolbar"
+                  aria-label={t('projects')}
+                >
                   <ProjectsDropdown />
                   <SortByDropdown />
                 </div>
