@@ -22,6 +22,7 @@ const Modules = require('../../infrastructure/Modules')
 const async = require('async')
 const { formatCurrencyLocalized } = require('../../util/currency')
 const SubscriptionFormatters = require('./SubscriptionFormatters')
+const { URLSearchParams } = require('url')
 
 const groupPlanModalOptions = Settings.groupPlanModalOptions
 const validGroupPlanModalOptions = {
@@ -53,6 +54,15 @@ function _getGroupPlanModalDefaults(req, currency) {
   }
 }
 
+function _plansBanners({ geoPricingLATAMTestVariant, countryCode }) {
+  const showLATAMBanner =
+    geoPricingLATAMTestVariant === 'latam' &&
+    ['MX', 'CO', 'CL', 'PE'].includes(countryCode)
+  const showInrGeoBanner = countryCode === 'IN'
+  const showBrlGeoBanner = countryCode === 'BR'
+  return { showLATAMBanner, showInrGeoBanner, showBrlGeoBanner }
+}
+
 async function plansPage(req, res) {
   const websiteRedesignPlansAssignment =
     await SplitTestHandler.promises.getAssignment(
@@ -60,44 +70,41 @@ async function plansPage(req, res) {
       res,
       'website-redesign-plans'
     )
+  if (websiteRedesignPlansAssignment.variant !== 'default') {
+    const queryParamString = new URLSearchParams(req.query)?.toString()
+    const queryParamForRedirect = queryParamString ? '?' + queryParamString : ''
 
-  if (websiteRedesignPlansAssignment.variant === 'new-design') {
-    return res.redirect(302, '/user/subscription/plans-2')
-  } else if (websiteRedesignPlansAssignment.variant === 'light-design') {
-    return res.redirect(302, '/user/subscription/plans-3')
+    if (websiteRedesignPlansAssignment.variant === 'new-design') {
+      return res.redirect(
+        302,
+        '/user/subscription/plans-2' + queryParamForRedirect
+      )
+    } else if (websiteRedesignPlansAssignment.variant === 'light-design') {
+      return res.redirect(
+        302,
+        '/user/subscription/plans-3' + queryParamForRedirect
+      )
+    }
   }
 
   const language = req.i18n.language || 'en'
 
   const plans = SubscriptionViewModelBuilder.buildPlansList()
 
-  const {
-    currency,
-    recommendedCurrency,
-    countryCode,
-    geoPricingLATAMTestVariant,
-  } = await _getRecommendedCurrency(req, res)
+  const { currency, countryCode, geoPricingLATAMTestVariant } =
+    await _getRecommendedCurrency(req, res)
 
   const latamCountryBannerDetails = await getLatamCountryBannerDetails(req, res)
   const groupPlanModalDefaults = _getGroupPlanModalDefaults(req, currency)
 
   const currentView = 'annual'
 
-  const plansPageViewSegmentation = {
-    currency: recommendedCurrency,
-    countryCode,
-    'geo-pricing-latam-v2': geoPricingLATAMTestVariant,
-  }
-
-  AnalyticsManager.recordEventForSession(
-    req.session,
-    'plans-page-view',
-    plansPageViewSegmentation
+  const { showLATAMBanner, showInrGeoBanner, showBrlGeoBanner } = _plansBanners(
+    {
+      geoPricingLATAMTestVariant,
+      countryCode,
+    }
   )
-
-  const showLATAMBanner =
-    geoPricingLATAMTestVariant === 'latam' &&
-    ['MX', 'CO', 'CL', 'PE'].includes(countryCode)
 
   const localCcyAssignment = await SplitTestHandler.promises.getAssignment(
     req,
@@ -129,10 +136,12 @@ async function plansPage(req, res) {
         language,
         formatCurrency
       ),
-    showInrGeoBanner: countryCode === 'IN',
-    showBrlGeoBanner: countryCode === 'BR',
+    showInrGeoBanner,
+    showBrlGeoBanner,
     showLATAMBanner,
     latamCountryBannerDetails,
+    countryCode,
+    websiteRedesignPlansVariant: 'default',
   })
 }
 
@@ -144,16 +153,33 @@ async function plansPageLightDesign(req, res) {
   if (!splitTestActive && req.query.preview !== 'true') {
     return res.redirect(302, '/user/subscription/plans')
   }
-
-  const { currency } = await _getRecommendedCurrency(req, res)
+  const { currency, countryCode, geoPricingLATAMTestVariant } =
+    await _getRecommendedCurrency(req, res)
 
   const language = req.i18n.language || 'en'
   const currentView = 'annual'
   const plans = SubscriptionViewModelBuilder.buildPlansList()
   const groupPlanModalDefaults = _getGroupPlanModalDefaults(req, currency)
-  const formatCurrency = SubscriptionHelper.formatCurrencyDefault
 
-  // TODO: add page view analytics?
+  const localCcyAssignment = await SplitTestHandler.promises.getAssignment(
+    req,
+    res,
+    'local-ccy-format-v2'
+  )
+  const formatCurrency =
+    localCcyAssignment.variant === 'enabled'
+      ? formatCurrencyLocalized
+      : SubscriptionHelper.formatCurrencyDefault
+
+  const { showLATAMBanner, showInrGeoBanner, showBrlGeoBanner } = _plansBanners(
+    {
+      geoPricingLATAMTestVariant,
+      countryCode,
+    }
+  )
+
+  const latamCountryBannerDetails = await getLatamCountryBannerDetails(req, res)
+
   res.render('subscriptions/plans-light-design', {
     title: 'plans_and_pricing',
     currentView,
@@ -174,6 +200,12 @@ async function plansPageLightDesign(req, res) {
         language,
         formatCurrency
       ),
+    showLATAMBanner,
+    showInrGeoBanner,
+    showBrlGeoBanner,
+    latamCountryBannerDetails,
+    countryCode,
+    websiteRedesignPlansVariant: 'light-design',
   })
 }
 
@@ -199,6 +231,15 @@ async function userSubscriptionPage(req, res) {
     res,
     'local-ccy-format-v2'
   )
+  await SplitTestHandler.promises.getAssignment(req, res, 'ai-add-on')
+
+  // Populates splitTestVariants with a value for the split test name and allows
+  // Pug to read it
+  await SplitTestHandler.promises.getAssignment(
+    req,
+    res,
+    'bootstrap-5-subscription'
+  )
 
   const results =
     await SubscriptionViewModelBuilder.promises.buildUsersSubscriptionViewModel(
@@ -218,6 +259,10 @@ async function userSubscriptionPage(req, res) {
   } = results
   const hasSubscription =
     await LimitationsManager.promises.userHasV1OrV2Subscription(user)
+
+  const userCanExtendTrial = (
+    await Modules.promises.hooks.fire('userCanExtendTrial', user)
+  )?.[0]
   const fromPlansPage = req.query.hasSubscription
   const plansData =
     SubscriptionViewModelBuilder.buildPlansListForSubscriptionDash(
@@ -270,6 +315,7 @@ async function userSubscriptionPage(req, res) {
     hasSubscription,
     fromPlansPage,
     personalSubscription,
+    userCanExtendTrial,
     memberGroupSubscriptions,
     managedGroupSubscriptions,
     managedInstitutions,
@@ -316,20 +362,11 @@ async function interstitialPaymentPage(req, res) {
   if (hasSubscription) {
     res.redirect('/user/subscription?hasSubscription=true')
   } else {
-    const paywallPlansPageViewSegmentation = {
-      currency: recommendedCurrency,
-      countryCode,
-      'geo-pricing-latam-v2': geoPricingLATAMTestVariant,
-    }
-    AnalyticsManager.recordEventForSession(
-      req.session,
-      'paywall-plans-page-view',
-      paywallPlansPageViewSegmentation
-    )
-
-    const showLATAMBanner =
-      geoPricingLATAMTestVariant === 'latam' &&
-      ['MX', 'CO', 'CL', 'PE'].includes(countryCode)
+    const { showLATAMBanner, showInrGeoBanner, showBrlGeoBanner } =
+      _plansBanners({
+        geoPricingLATAMTestVariant,
+        countryCode,
+      })
 
     const localCcyAssignment = await SplitTestHandler.promises.getAssignment(
       req,
@@ -350,11 +387,12 @@ async function interstitialPaymentPage(req, res) {
           ? formatCurrencyLocalized
           : SubscriptionHelper.formatCurrencyDefault,
       showCurrencyAndPaymentMethods: localCcyAssignment.variant === 'enabled',
-      showInrGeoBanner: countryCode === 'IN',
-      showBrlGeoBanner: countryCode === 'BR',
+      showInrGeoBanner,
+      showBrlGeoBanner,
       showLATAMBanner,
       latamCountryBannerDetails,
       skipLinkTarget: req.session?.postCheckoutRedirect || '/project',
+      websiteRedesignPlansVariant: websiteRedesignPlansAssignment.variant,
     })
   }
 }
@@ -385,6 +423,12 @@ async function successfulSubscription(req, res) {
   if (!personalSubscription) {
     res.redirect('/user/subscription/plans')
   } else {
+    await SplitTestHandler.promises.getAssignment(
+      req,
+      res,
+      'bootstrap-5-subscription'
+    )
+
     res.render('subscriptions/successful-subscription-react', {
       title: 'thank_you',
       personalSubscription,
@@ -415,7 +459,12 @@ function cancelSubscription(req, res, next) {
  * @param {import('express').NextFunction} next
  * @returns {Promise<void>}
  */
-function canceledSubscription(req, res, next) {
+async function canceledSubscription(req, res, next) {
+  await SplitTestHandler.promises.getAssignment(
+    req,
+    res,
+    'bootstrap-5-subscription'
+  )
   return res.render('subscriptions/canceled-subscription-react', {
     title: 'subscription_canceled',
   })
@@ -566,6 +615,14 @@ async function extendTrial(req, res) {
   const { subscription } =
     await LimitationsManager.promises.userHasV2Subscription(user)
 
+  const allowed = (
+    await Modules.promises.hooks.fire('userCanExtendTrial', user)
+  )?.[0]
+  if (!allowed) {
+    logger.warn({ userId: user._id }, 'user can not extend trial')
+    return res.sendStatus(403)
+  }
+
   try {
     await SubscriptionHandler.promises.extendTrial(subscription, 14)
     AnalyticsManager.recordEventForSession(
@@ -702,7 +759,7 @@ module.exports = {
   interstitialPaymentPage: expressify(interstitialPaymentPage),
   successfulSubscription: expressify(successfulSubscription),
   cancelSubscription,
-  canceledSubscription,
+  canceledSubscription: expressify(canceledSubscription),
   cancelV1Subscription,
   updateSubscription,
   cancelPendingSubscriptionChange,
@@ -713,7 +770,9 @@ module.exports = {
   recurlyNotificationParser,
   refreshUserFeatures: expressify(refreshUserFeatures),
   redirectToHostedPage: expressify(redirectToHostedPage),
+  plansBanners: _plansBanners,
   promises: {
     getRecommendedCurrency: _getRecommendedCurrency,
+    getLatamCountryBannerDetails,
   },
 }

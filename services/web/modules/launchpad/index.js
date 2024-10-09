@@ -1,3 +1,10 @@
 const LaunchpadRouter = require('./app/src/LaunchpadRouter')
 
-module.exports = { router: LaunchpadRouter }
+/** @import { WebModule } from "../../types/web-module" */
+
+/** @type {WebModule} */
+const LaunchpadModule = {
+  router: LaunchpadRouter,
+}
+
+module.exports = LaunchpadModule

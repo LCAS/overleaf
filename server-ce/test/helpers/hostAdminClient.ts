@@ -1,7 +1,7 @@
-const hostAdminUrl = Cypress.env('ADMIN_CLIENT_URL') || 'http://host-admin'
+const hostAdminURL = Cypress.env('HOST_ADMIN_URL') || 'http://host-admin'
 
 export async function dockerCompose(cmd: string, ...args: string[]) {
-  return await fetchJSON(`${hostAdminUrl}/docker/compose/${cmd}`, {
+  return await fetchJSON(`${hostAdminURL}/docker/compose/${cmd}`, {
     method: 'POST',
     body: JSON.stringify({
       args,
@@ -15,8 +15,8 @@ export async function reconfigure({
   vars = {},
   withDataDir = false,
   resetData = false,
-}) {
-  return await fetchJSON(`${hostAdminUrl}/reconfigure`, {
+}): Promise<{ previousConfigServer: string }> {
+  return await fetchJSON(`${hostAdminURL}/reconfigure`, {
     method: 'POST',
     body: JSON.stringify({
       pro,
@@ -28,15 +28,26 @@ export async function reconfigure({
   })
 }
 
-async function fetchJSON(
+async function fetchJSON<T = { stdout: string; stderr: string }>(
   input: RequestInfo,
   init?: RequestInit
-): Promise<{ stdout: string; stderr: string }> {
+): Promise<T> {
   if (init?.body) {
     init.headers = { 'Content-Type': 'application/json' }
   }
-  const res = await fetch(input, init)
-  const { error, stdout, stderr } = await res.json()
+  let res
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      res = await fetch(input, init)
+      break
+    } catch {
+      await sleep(3_000)
+    }
+  }
+  if (!res) {
+    res = await fetch(input, init)
+  }
+  const { error, stdout, stderr, ...rest } = await res.json()
   if (error) {
     console.error(input, init, 'failed:', error)
     if (stdout) console.log(stdout)
@@ -45,7 +56,7 @@ async function fetchJSON(
     Object.assign(err, error)
     throw err
   }
-  return { stdout, stderr }
+  return { stdout, stderr, ...rest }
 }
 
 export async function runScript({
@@ -57,7 +68,7 @@ export async function runScript({
   script: string
   args?: string[]
 }) {
-  return await fetchJSON(`${hostAdminUrl}/run/script`, {
+  return await fetchJSON(`${hostAdminURL}/run/script`, {
     method: 'POST',
     body: JSON.stringify({
       cwd,
@@ -68,8 +79,14 @@ export async function runScript({
 }
 
 export async function getRedisKeys() {
-  const { stdout } = await fetchJSON(`${hostAdminUrl}/redis/keys`, {
+  const { stdout } = await fetchJSON(`${hostAdminURL}/redis/keys`, {
     method: 'GET',
   })
   return stdout.split('\n')
+}
+
+async function sleep(ms: number) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
 }

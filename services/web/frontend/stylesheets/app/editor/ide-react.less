@@ -57,6 +57,8 @@
   .custom-toggler {
     padding: 0;
     border-width: 0;
+    // Override react-resizable-panels which sets a global * { cursor: ew-resize }
+    cursor: pointer !important;
   }
 
   &.horizontal-resize-handle-enabled {
@@ -89,6 +91,11 @@
     margin: 0;
     // Ensure that SyncTex controls appear in front of PDF viewer controls and logs pane
     z-index: 12;
+
+    & .synctex-control .synctex-control-icon {
+      // Override react-resizable-panels which sets a global * { cursor: ew-resize }
+      cursor: pointer !important;
+    }
   }
 }
 
@@ -151,6 +158,7 @@
 }
 
 // Styles for placeholder elements that will eventually be replaced
+// Unused, not migrated to SCSS
 .ide-react-placeholder-chat {
   background-color: var(--editor-toolbar-bg);
   color: var(--neutral-20);

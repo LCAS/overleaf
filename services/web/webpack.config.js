@@ -27,10 +27,6 @@ const entryPoints = {
   'main-light-style': './frontend/stylesheets/main-light-style.less',
   'main-style-bootstrap-5':
     './frontend/stylesheets/bootstrap-5/main-style.scss',
-  'main-ieee-style-bootstrap-5':
-    './frontend/stylesheets/bootstrap-5/main-ieee-style.scss',
-  'main-light-style-bootstrap-5':
-    './frontend/stylesheets/bootstrap-5/main-light-style.scss',
 }
 
 // Add entrypoints for each "page"
@@ -110,6 +106,10 @@ module.exports = {
     splitChunks: {
       chunks: 'all', // allow non-async chunks to be analysed for shared modules
     },
+    // https://webpack.js.org/configuration/optimization/#optimizationruntimechunk
+    runtimeChunk: {
+      name: 'runtime',
+    },
   },
 
   // Define how file types are handled by webpack
@@ -121,7 +121,10 @@ module.exports = {
         test: /\.([jt]sx?|[cm]js)$/,
         // Only compile application files and specific dependencies
         // (other npm and vendored dependencies must be in ES5 already)
-        exclude: [/node_modules\/(?!(react-dnd|chart\.js|@uppy)\/)/, vendorDir],
+        exclude: [
+          /node_modules\/(?!(react-dnd|chart\.js|@uppy|pdfjs-dist401|react-resizable-panels)\/)/,
+          vendorDir,
+        ],
         use: [
           {
             loader: 'babel-loader',
@@ -255,18 +258,6 @@ module.exports = {
           },
         ],
       },
-      {
-        // Expose jQuery and $ global variables
-        test: require.resolve('jquery'),
-        use: [
-          {
-            loader: 'expose-loader',
-            options: {
-              exposes: ['$', 'jQuery'],
-            },
-          },
-        ],
-      },
     ],
   },
   resolve: {
@@ -307,6 +298,12 @@ module.exports = {
     new webpack.IgnorePlugin({
       resourceRegExp: /^\.\/locale$/,
       contextRegExp: /moment$/,
+    }),
+
+    // Set window.$ and window.jQuery
+    new webpack.ProvidePlugin({
+      $: 'jquery',
+      jQuery: 'jquery',
     }),
 
     // Copy the required files for loading MathJax from MathJax NPM package

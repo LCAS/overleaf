@@ -13,11 +13,12 @@ import type { ProjectContextMember } from '@/shared/context/types/project-contex
 import { PermissionsLevel } from '@/features/ide-react/types/permissions'
 import { linkSharingEnforcementDate } from '../../utils/link-sharing'
 
-type PermissionsOption = PermissionsLevel | 'removeAccess'
+type PermissionsOption = PermissionsLevel | 'removeAccess' | 'downgraded'
 
 type EditMemberProps = {
   member: ProjectContextMember
   hasExceededCollaboratorLimit: boolean
+  hasBeenDowngraded: boolean
   canAddCollaborators: boolean
 }
 
@@ -29,6 +30,7 @@ type Privilege = {
 export default function EditMember({
   member,
   hasExceededCollaboratorLimit,
+  hasBeenDowngraded,
   canAddCollaborators,
 }: EditMemberProps) {
   const [privileges, setPrivileges] = useState<PermissionsOption>(
@@ -124,9 +126,17 @@ export default function EditMember({
       <FormGroup className="project-member">
         <Col xs={7}>
           <div className="project-member-email-icon">
-            <Icon type={shouldWarnMember() ? 'warning' : 'user'} fw />
+            <Icon
+              type={
+                shouldWarnMember() || member.pendingEditor ? 'warning' : 'user'
+              }
+              fw
+            />
             <div className="email-warning">
               {member.email}
+              {member.pendingEditor && (
+                <div className="subtitle">{t('view_only_downgraded')}</div>
+              )}
               {shouldWarnMember() && (
                 <div className="subtitle">
                   {t('will_lose_edit_access_on_date', {
@@ -138,7 +148,7 @@ export default function EditMember({
           </div>
         </Col>
 
-        <Col xs={2}>
+        <Col xs={1}>
           {privileges !== member.privileges && privilegeChangePending && (
             <ChangePrivilegesActions
               handleReset={() => setPrivileges(member.privileges)}
@@ -146,12 +156,17 @@ export default function EditMember({
           )}
         </Col>
 
-        <Col xs={3}>
+        <Col xs={4} className="project-member-select">
+          {hasBeenDowngraded && <Icon type="warning" fw />}
+
           <SelectPrivilege
             value={privileges}
             handleChange={value => {
-              value && handlePrivilegeChange(value.key)
+              if (value) {
+                handlePrivilegeChange(value.key)
+              }
             }}
+            hasBeenDowngraded={hasBeenDowngraded}
             canAddCollaborators={canAddCollaborators}
           />
         </Col>
@@ -172,12 +187,14 @@ EditMember.propTypes = {
 type SelectPrivilegeProps = {
   value: string
   handleChange: (item: Privilege | null | undefined) => void
+  hasBeenDowngraded: boolean
   canAddCollaborators: boolean
 }
 
 function SelectPrivilege({
   value,
   handleChange,
+  hasBeenDowngraded,
   canAddCollaborators,
 }: SelectPrivilegeProps) {
   const { t } = useTranslation()
@@ -193,12 +210,35 @@ function SelectPrivilege({
     [t]
   )
 
+  const downgradedPseudoPrivilege: Privilege = {
+    key: 'downgraded',
+    label: t('select_access_level'),
+  }
+
   function getPrivilegeSubtitle(privilege: PermissionsOption) {
-    return !canAddCollaborators &&
-      privilege === 'readAndWrite' &&
-      value !== 'readAndWrite'
-      ? t('limited_to_n_editors_per_project', { count: features.collaborators })
+    if (!hasBeenDowngraded) {
+      return !canAddCollaborators &&
+        privilege === 'readAndWrite' &&
+        value !== 'readAndWrite'
+        ? t('limited_to_n_editors_per_project', {
+            count: features.collaborators,
+          })
+        : ''
+    }
+
+    return privilege === 'readAndWrite'
+      ? t('limited_to_n_editors', {
+          count: features.collaborators,
+        })
       : ''
+  }
+
+  function isPrivilegeDisabled(privilege: PermissionsOption) {
+    return (
+      !canAddCollaborators &&
+      privilege === 'readAndWrite' &&
+      (hasBeenDowngraded || value !== 'readAndWrite')
+    )
   }
 
   return (
@@ -207,11 +247,13 @@ function SelectPrivilege({
       itemToKey={item => item.key}
       itemToString={item => (item ? item.label : '')}
       itemToSubtitle={item => (item ? getPrivilegeSubtitle(item.key) : '')}
-      itemToDisabled={item =>
-        item ? getPrivilegeSubtitle(item.key) !== '' : false
-      }
+      itemToDisabled={item => (item ? isPrivilegeDisabled(item.key) : false)}
       defaultItem={privileges.find(item => item.key === value)}
-      selected={privileges.find(item => item.key === value)}
+      selected={
+        hasBeenDowngraded
+          ? downgradedPseudoPrivilege
+          : privileges.find(item => item.key === value)
+      }
       name="privileges"
       onSelectedItemChanged={handleChange}
       selectedIcon

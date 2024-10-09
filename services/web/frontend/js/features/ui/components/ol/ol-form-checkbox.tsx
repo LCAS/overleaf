@@ -11,7 +11,7 @@ type OLFormCheckboxProps = React.ComponentProps<(typeof Form)['Check']> & {
 function OLFormCheckbox(props: OLFormCheckboxProps) {
   const { bs3Props, inputRef, ...rest } = props
 
-  const bs3FormLabelProps: React.ComponentProps<typeof BS3Checkbox> = {
+  const bs3FormCheckboxProps: React.ComponentProps<typeof BS3Checkbox> = {
     children: rest.label,
     checked: rest.checked,
     required: rest.required,
@@ -20,6 +20,8 @@ function OLFormCheckbox(props: OLFormCheckboxProps) {
     inline: rest.inline,
     title: rest.title,
     autoComplete: rest.autoComplete,
+    defaultChecked: rest.defaultChecked,
+    className: rest.className,
     onChange: rest.onChange as (e: React.ChangeEvent<unknown>) => void,
     inputRef: node => {
       if (inputRef) {
@@ -34,9 +36,9 @@ function OLFormCheckbox(props: OLFormCheckboxProps) {
     <BootstrapVersionSwitcher
       bs3={
         rest.type === 'radio' ? (
-          <BS3Radio {...bs3FormLabelProps} />
+          <BS3Radio {...bs3FormCheckboxProps} />
         ) : (
-          <BS3Checkbox {...bs3FormLabelProps} />
+          <BS3Checkbox {...bs3FormCheckboxProps} />
         )
       }
       bs5={<Form.Check ref={inputRef} {...rest} />}

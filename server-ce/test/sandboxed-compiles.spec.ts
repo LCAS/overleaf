@@ -9,8 +9,6 @@ import { beforeWithReRunOnTestRetry } from './helpers/beforeWithReRunOnTestRetry
 const LABEL_TEX_LIVE_VERSION = 'TeX Live version'
 
 describe('SandboxedCompiles', function () {
-  ensureUserExists({ email: 'user@example.com' })
-
   const enabledVars = {
     DOCKER_RUNNER: 'true',
     SANDBOXED_COMPILES: 'true',
@@ -18,17 +16,19 @@ describe('SandboxedCompiles', function () {
     ALL_TEX_LIVE_DOCKER_IMAGE_NAMES: '2023,2022',
   }
 
-  describe('enabled in Server Pro', () => {
+  describe('enabled in Server Pro', function () {
     if (isExcludedBySharding('PRO_CUSTOM_2')) return
     startWith({
       pro: true,
       vars: enabledVars,
+      resetData: true,
     })
+    ensureUserExists({ email: 'user@example.com' })
     beforeEach(function () {
       login('user@example.com')
     })
 
-    it('should offer TexLive images and switch the compiler', () => {
+    it('should offer TexLive images and switch the compiler', function () {
       cy.visit('/project')
       createProject('sandboxed')
       const recompile = throttledRecompile()
@@ -58,14 +58,14 @@ describe('SandboxedCompiles', function () {
 
     checkSyncTeX()
     checkXeTeX()
+    checkRecompilesAfterErrors()
   })
 
   function checkSyncTeX() {
-    describe('SyncTeX', () => {
+    describe('SyncTeX', function () {
       let projectName: string
-      beforeWithReRunOnTestRetry(function () {
+      beforeEach(function () {
         projectName = `Project ${uuid()}`
-        login('user@example.com')
         cy.visit('/project')
         createProject(projectName)
         const recompile = throttledRecompile()
@@ -76,12 +76,13 @@ describe('SandboxedCompiles', function () {
             `\n\\pagebreak\n\\section{{}Section A}\n\\pagebreak\n\\section{{}Section B}\n\\pagebreak`
           )
         recompile()
+        cy.log('wait for pdf-rendering')
+        cy.get('.pdf-viewer').within(() => {
+          cy.findByText(projectName)
+        })
       })
 
-      it('should sync to code', () => {
-        cy.visit('/project')
-        cy.findByText(projectName).click()
-
+      it('should sync to code', function () {
         cy.log('navigate to \\maketitle using double click in PDF')
         cy.get('.pdf-viewer').within(() => {
           cy.findByText(projectName).dblclick()
@@ -112,26 +113,13 @@ describe('SandboxedCompiles', function () {
         cy.get('.cm-activeLine').should('have.text', '\\section{Section B}')
       })
 
-      // Waiting for a fix of https://github.com/overleaf/internal/issues/18603
-      it.skip('should sync to pdf', () => {
-        cy.visit('/project')
-        cy.findByText(projectName).click()
-
-        cy.log('wait for compile')
-        cy.get('.pdf-viewer').within(() => {
-          cy.findByText(projectName)
-        })
-
+      it('should sync to pdf', function () {
         cy.log('zoom in')
-        for (let i = 0; i < 8; i++) {
-          cy.get('[aria-label="Zoom in"]').click({ force: true })
-        }
+        cy.findByText('45%').click()
+        cy.findByText('400%').click()
         cy.log('scroll to top')
         cy.get('.pdfjs-viewer-inner').scrollTo('top')
-        waitUntilScrollingFinished('.pdfjs-viewer-inner', -1)
-        cy.get('.pdfjs-viewer-inner')
-          .should('have.prop', 'scrollTop')
-          .as('start')
+        waitUntilScrollingFinished('.pdfjs-viewer-inner', -1).as('start')
 
         cy.log('navigate to title')
         cy.findByText('\\maketitle').parent().click()
@@ -163,8 +151,25 @@ describe('SandboxedCompiles', function () {
     })
   }
 
+  function checkRecompilesAfterErrors() {
+    it('recompiles even if there are Latex errors', function () {
+      login('user@example.com')
+      cy.visit('/project')
+      createProject('test-project')
+      const recompile = throttledRecompile()
+      cy.findByText('\\maketitle').parent().click()
+      cy.findByText('\\maketitle')
+        .parent()
+        .type('\n\\fakeCommand{} \n\\section{{}Test Section}')
+      recompile()
+      recompile()
+      cy.get('.pdf-viewer').should('contain.text', 'Test Section')
+      cy.get('.logs-pane').should('not.contain.text', 'No PDF')
+    })
+  }
+
   function checkXeTeX() {
-    it('should be able to use XeLaTeX', () => {
+    it('should be able to use XeLaTeX', function () {
       cy.visit('/project')
       createProject('XeLaTeX')
       const recompile = throttledRecompile()
@@ -198,7 +203,7 @@ describe('SandboxedCompiles', function () {
       login('user@example.com')
     })
 
-    it('should not offer TexLive images and use default compiler', () => {
+    it('should not offer TexLive images and use default compiler', function () {
       cy.visit('/project')
       createProject('sandboxed')
       cy.log('wait for compile')
@@ -215,21 +220,31 @@ describe('SandboxedCompiles', function () {
     })
   }
 
-  describe('disabled in Server Pro', () => {
+  describe('disabled in Server Pro', function () {
     if (isExcludedBySharding('PRO_DEFAULT_2')) return
     startWith({ pro: true })
+    ensureUserExists({ email: 'user@example.com' })
+    beforeEach(function () {
+      login('user@example.com')
+    })
 
     checkUsesDefaultCompiler()
     checkSyncTeX()
     checkXeTeX()
+    checkRecompilesAfterErrors()
   })
 
-  describe.skip('unavailable in CE', () => {
+  describe.skip('unavailable in CE', function () {
     if (isExcludedBySharding('CE_CUSTOM_1')) return
-    startWith({ pro: false, vars: enabledVars })
+    startWith({ pro: false, vars: enabledVars, resetData: true })
+    ensureUserExists({ email: 'user@example.com' })
+    beforeEach(function () {
+      login('user@example.com')
+    })
 
     checkUsesDefaultCompiler()
     checkSyncTeX()
     checkXeTeX()
+    checkRecompilesAfterErrors()
   })
 })

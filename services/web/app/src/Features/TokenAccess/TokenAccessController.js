@@ -8,9 +8,6 @@ const OError = require('@overleaf/o-error')
 const { expressify } = require('@overleaf/promise-utils')
 const AuthorizationManager = require('../Authorization/AuthorizationManager')
 const PrivilegeLevels = require('../Authorization/PrivilegeLevels')
-const {
-  handleAdminDomainRedirect,
-} = require('../Authorization/AuthorizationMiddleware')
 const ProjectAuditLogHandler = require('../Project/ProjectAuditLogHandler')
 const SplitTestHandler = require('../SplitTests/SplitTestHandler')
 const CollaboratorsHandler = require('../Collaborators/CollaboratorsHandler')
@@ -19,6 +16,13 @@ const CollaboratorsGetter = require('../Collaborators/CollaboratorsGetter')
 const ProjectGetter = require('../Project/ProjectGetter')
 const AsyncFormHelper = require('../Helpers/AsyncFormHelper')
 const AnalyticsManager = require('../Analytics/AnalyticsManager')
+const {
+  canRedirectToAdminDomain,
+} = require('../Helpers/AdminAuthorizationHelper')
+const { getSafeAdminDomainRedirect } = require('../Helpers/UrlHelper')
+const UserGetter = require('../User/UserGetter')
+const Settings = require('@overleaf/settings')
+const LimitationsManager = require('../Subscription/LimitationsManager')
 
 const orderedPrivilegeLevels = [
   PrivilegeLevels.NONE,
@@ -86,15 +90,20 @@ async function _handleV1Project(token, userId) {
   }
 }
 
+async function _isOverleafStaff(userId) {
+  const emails = await UserGetter.promises.getUserConfirmedEmails(userId)
+  const adminDomains = Settings.adminDomains ?? []
+  return emails.some(email =>
+    adminDomains.some(adminDomain => email.email.endsWith(`@${adminDomain}`))
+  )
+}
+
 async function tokenAccessPage(req, res, next) {
   const { token } = req.params
   if (!TokenAccessHandler.isValidToken(token)) {
     return next(new Errors.NotFoundError())
   }
-  if (handleAdminDomainRedirect(req, res)) {
-    // Admin users do not join the project, but view it on the admin domain.
-    return
-  }
+
   try {
     if (TokenAccessHandler.isReadOnlyToken(token)) {
       const docPublishedInfo =
@@ -231,6 +240,37 @@ async function checkAndGetProjectOrResponseAction(
       { projectId, action: 'user already has higher or same privilege' },
     ]
   }
+
+  // Handle admin redirect
+  // If the project owner is an internal staff (using @overleaf.com email),
+  // the admin will join the project "for real".
+  // If the project owner is a external user
+  // the admin will be redirect to admin domain to view the project.
+  if (canRedirectToAdminDomain(SessionManager.getSessionUser(req.session))) {
+    const isProjectOwnerOverleafStaff = await _isOverleafStaff(
+      project.owner_ref
+    )
+    if (isProjectOwnerOverleafStaff) {
+      logger.warn(
+        { projectId, userId },
+        'letting admin user join staff project'
+      )
+    } else {
+      let projectUrlWithToken = TokenAccessHandler.makeTokenUrl(token)
+      if (tokenHashPrefix && tokenHashPrefix.startsWith('#')) {
+        projectUrlWithToken += `${tokenHashPrefix}`
+      }
+      return [
+        null,
+        () =>
+          res.json({
+            redirect: getSafeAdminDomainRedirect(projectUrlWithToken),
+          }),
+        { projectId, action: 'redirect admin user to admin domain' },
+      ]
+    }
+  }
+
   if (!tokenAccessEnabled) {
     return [
       null,
@@ -294,19 +334,43 @@ async function grantTokenAccessReadAndWrite(req, res, next) {
         })
       }
 
+      const linkSharingEnforcement =
+        await SplitTestHandler.promises.getAssignmentForUser(
+          project.owner_ref,
+          'link-sharing-enforcement'
+        )
+      const pendingEditor =
+        linkSharingEnforcement?.variant === 'active' &&
+        !(await LimitationsManager.promises.canAcceptEditCollaboratorInvite(
+          project._id
+        ))
       await ProjectAuditLogHandler.promises.addEntry(
         project._id,
         'accept-via-link-sharing',
         userId,
         req.ip,
-        { privileges: 'readAndWrite' }
+        {
+          privileges: pendingEditor ? 'readOnly' : 'readAndWrite',
+          ...(pendingEditor && { pendingEditor: true }),
+        }
       )
-      // Currently does not enforce the collaborator limit (warning phase)
+      AnalyticsManager.recordEventForUserInBackground(
+        userId,
+        'project-joined',
+        {
+          mode: pendingEditor ? 'read-only' : 'read-write',
+          projectId: project._id.toString(),
+          ...(pendingEditor && { pendingEditor: true }),
+        }
+      )
       await CollaboratorsHandler.promises.addUserIdToProject(
         project._id,
         undefined,
         userId,
-        PrivilegeLevels.READ_AND_WRITE
+        pendingEditor
+          ? PrivilegeLevels.READ_ONLY
+          : PrivilegeLevels.READ_AND_WRITE,
+        { pendingEditor }
       )
       // Does not remove any pending invite or the invite notification
       // Should be a noop if the user is already a member,
@@ -489,20 +553,36 @@ async function sharingUpdatesConsent(req, res, next) {
 async function moveReadWriteToCollaborators(req, res, next) {
   const { Project_id: projectId } = req.params
   const userId = SessionManager.getLoggedInUserId(req.session)
+  const project = await ProjectGetter.promises.getProject(projectId, {
+    owner_ref: 1,
+  })
   const isInvitedMember =
     await CollaboratorsGetter.promises.isUserInvitedMemberOfProject(
       userId,
       projectId
     )
+  const linkSharingEnforcement =
+    await SplitTestHandler.promises.getAssignmentForUser(
+      project.owner_ref,
+      'link-sharing-enforcement'
+    )
+  const pendingEditor =
+    linkSharingEnforcement?.variant === 'active' &&
+    !(await LimitationsManager.promises.canAcceptEditCollaboratorInvite(
+      project._id
+    ))
   await ProjectAuditLogHandler.promises.addEntry(
     projectId,
     'accept-via-link-sharing',
     userId,
     req.ip,
     {
-      privileges: 'readAndWrite',
+      privileges: pendingEditor
+        ? PrivilegeLevels.READ_ONLY
+        : PrivilegeLevels.READ_AND_WRITE,
       tokenMember: true,
       invitedMember: isInvitedMember,
+      ...(pendingEditor && { pendingEditor: true }),
     }
   )
   if (isInvitedMember) {
@@ -514,7 +594,10 @@ async function moveReadWriteToCollaborators(req, res, next) {
     await CollaboratorsHandler.promises.setCollaboratorPrivilegeLevel(
       projectId,
       userId,
-      PrivilegeLevels.READ_AND_WRITE
+      pendingEditor
+        ? PrivilegeLevels.READ_ONLY
+        : PrivilegeLevels.READ_AND_WRITE,
+      { pendingEditor }
     )
   } else {
     // Normal case, not invited, joining via link sharing
@@ -526,7 +609,10 @@ async function moveReadWriteToCollaborators(req, res, next) {
       projectId,
       undefined,
       userId,
-      PrivilegeLevels.READ_AND_WRITE
+      pendingEditor
+        ? PrivilegeLevels.READ_ONLY
+        : PrivilegeLevels.READ_AND_WRITE,
+      { pendingEditor }
     )
   }
   EditorRealTimeController.emitToRoom(projectId, 'project:membership:changed', {
